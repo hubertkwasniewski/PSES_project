@@ -25,6 +25,7 @@
   #define CANTP_SW_MINOR_VER (0x02U)
   #define CANTP_SW_PATCH_VER (0x03U)
   #define CANTP_VENDOR_ID (0x04U)
+  #define CANTP_FRAME_SIZE (0x08U)
 /*====================================================================================================================*\
   Typedefs
 \*====================================================================================================================*/
@@ -44,6 +45,13 @@
     CANTP_TX_PROCESSING,
     CANTP_TX_PROCESSING_SUSPEND
   } CanTp_TxStateType;
+
+  typedef enum {
+    SF = 0,
+    FF,
+    CF,
+    FC
+  } CanTp_FrameType;
 
   typedef enum {
     CANTP_EXTENDED,
@@ -172,4 +180,13 @@
   void CanTp_GetVersionInfo(Std_VersionInfoType* versioninfo);
   void CanTp_Shutdown(void);
 
+  Std_ReturnType CanTp_Transmit(PduIdType TxPduId, const PduInfoType* PduInfoPtr);
+  Std_ReturnType CanTp_CancelTransmit(PduIdType TxPduId);
+  Std_ReturnType CanTp_CancelReceive(PduIdType RxPduId);
+  Std_ReturnType CanTp_ChangeParameter(PduIdType id, TPParameterType parameter, uint16 value);
+  Std_ReturnType CanTp_ReadParameter(PduIdType id, TPParameterType parameter, uint16* value);
+  void CanTp_MainFunction(void);
+  void CanTp_RxIndication(PduIdType RxPduId, const PduInfoType* PduInfoPtr);
+  void CanTp_TxConfirmation(PduIdType TxPduId, Std_ReturnType result);
+  
 #endif /* CAN_TP_H */
