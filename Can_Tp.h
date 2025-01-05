@@ -140,7 +140,7 @@
     CanTp_NTaType CanTpNTa;
     CanTp_RxFcNPduType CanTpRxFcNPdu;
     CanTp_TxNPduType CanTpTxNPdu;
-  } CanTp_TpTxNSduType;
+  } CanTp_TxNSduType;
 
   typedef struct{
     uint8 CanTpBs;
