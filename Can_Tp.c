@@ -15,7 +15,8 @@
 /*=======================================================================================================*\
   Global variables
 \*=======================================================================================================*/
-CanTp_ConfigType Config;
+CanTp_ConfigType ConfigPtr;
+CanTp_ConfigRxTxType RxTxVariablesConfig;
 CanTp_StateType eCanTp_State;
 /*=======================================================================================================*\
   Definitions of functions
@@ -28,8 +29,9 @@ CanTp_StateType eCanTp_State;
 */
 /*=======================================================================================================*/
 void CanTp_Init(const CanTp_ConfigType* CfgPtr) {
-    CfgPtr->CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
-    CfgPtr->CanTp_TxConfig.eCanTp_TxState = CANTP_TX_WAIT;
+    ConfigPtr = *CfgPtr;
+    RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+    RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_WAIT;
     eCanTp_State = CANTP_ON;
 }
 /*========================================================================================================*/

@@ -26,6 +26,14 @@
   #define CANTP_SW_PATCH_VER (0x03U)
   #define CANTP_VENDOR_ID (0x04U)
   #define CANTP_FRAME_SIZE (0x08U)
+
+  #define N_AS_TIMEOUT_VALUE 1000
+  #define N_AR_TIMEOUT_VALUE 1000
+  #define N_BS_TIMEOUT_VALUE 1000
+  #define N_BR_TIMEOUT_VALUE 1000
+  #define N_CS_TIMEOUT_VALUE 1000
+  #define N_CR_TIMEOUT_VALUE 1000
+  #define STMIN_TIMEOUT_VALUE 1000
 /*====================================================================================================================*\
   Typedefs
 \*====================================================================================================================*/
@@ -52,6 +60,21 @@
     CF,
     FC
   } CanTp_FrameType;
+
+  typedef enum {
+    FC_CTS = 0,
+    FC_WAIT,
+    FC_OVFLW
+  } CanTp_FCFlowStatusType;
+
+  typedef struct {
+    CanTp_FrameType eFrameType;
+    uint32 uiFrameLength;
+    uint8 uiSequenceNumber;
+    uint8 uiBlockSize;
+    uint8 uiFlowStatus;
+    uint8 uiSeparationTime;
+  } CanTp_PCIType;
 
   typedef enum {
     CANTP_EXTENDED,
@@ -188,5 +211,5 @@
   void CanTp_MainFunction(void);
   void CanTp_RxIndication(PduIdType RxPduId, const PduInfoType* PduInfoPtr);
   void CanTp_TxConfirmation(PduIdType TxPduId, Std_ReturnType result);
-  
+
 #endif /* CAN_TP_H */
