@@ -45,6 +45,24 @@
     CANTP_TX_PROCESSING_SUSPEND
   } CanTp_TxStateType;
 
+  typedef enum {
+    CANTP_EXTENDED,
+    CANTP_MIXED,
+    CANTP_MIXED29BIT,
+    CANTP_NORMALFIXED,
+    CANTP_STANDARD
+  } CanTp_AddressingFormatType;
+
+  typedef enum {
+    CANTP_OFF,
+    CANTP_ON
+  } CanTp_PaddingActivationType;
+  
+  typedef enum {
+    CANTP_FUNCTIONAL,
+    CANTP_PHYSICAL
+  } CanTp_TaType;
+
   typedef struct {
     CanTp_RxStateType eCanTp_RxState;
   } CanTp_RxConfigType;
@@ -52,11 +70,101 @@
   typedef struct {
     CanTp_TxStateType eCanTp_TxState;
   } CanTp_TxConfigType;
+
+  typedef struct{
+    float32 CanTpMainFunctionPeriod;
+    uint64 CanTpMaxChannelCnt;
+    CanTp_ChannelType CanTpChannel;
+  } CanTp_ConfigType;
+
+  typedef struct{
+    boolean CanTpChangeParameterApi;
+    boolean CanTpDevErrorDetect;
+    boolean CanTpDynIdSupport;
+    boolean CanTpFlexibleDataRateSupport;
+    boolean CanTpGenericConnectionSupport;
+    uint8 CanTpPaddingByte;
+    boolean CanTpReadParameterApi;
+    boolean CanTpVersionInfoApi;
+  } CanTp_GeneralType;
   
+  typedef struct{
+    CanTp_RxNSduType RxNSdu;
+    CanTp_TxNSduType TxNSdu;
+  } CanTp_ChannelType;
+
+  typedef struct {
+    uint16 CanTpRxNPduId;
+    PduIdType CanTpRxNPduRef;
+  } CanTp_RxNPduType;
+
+  typedef struct {
+    uint16 CanTpTxNPduConfirmationPduId;
+    PduIdType CanTpTxNPduRef;
+  } CanTp_TxNPduType;
+
+  typedef struct {
+    uint16 CanTpTxFcNPduConfirmationPduId;
+    PduIdType CanTpTxFcNPduRef;
+  } CanTp_TxFcNPduType;
+
+  typedef struct {
+    uint16 CanTpRxFcNPduId;
+    PduIdType CanTpRxFcNPduRef;
+  } CanTp_RxFcNPduType;
+
+  typedef struct {
+    uint8 CanTpNTa;
+  } CanTp_NTaType;
+
+  typedef struct {
+    uint8 CanTpNSa;
+  } CanTp_NSaType;
+
+  typedef struct {
+    uint8 CanTpNAe;
+  } CanTp_NAeType;
+
+  typedef struct {
+    float32 CanTpNas;
+    float32 CanTpNbs;
+    float32 CanTpNcs;
+    boolean CanTpTc;
+    CanTp_AddressingFormatType eCanTpTxAddressingFormat;
+    uint16 CanTpTxNSduId;
+    CanTp_PaddingActivationType eCanTpTxPaddingActivation;
+    CanTp_TaType eCanTpTxTaType;
+    PduIdType CanTpTxNSduRef;
+    CanTp_NAeType CanTpNAe;
+    CanTp_NSaType CanTpNSa;
+    CanTp_NTaType CanTpNTa;
+    CanTp_RxFcNPduType CanTpRxFcNPdu;
+    CanTp_TxNPduType CanTpTxNPdu;
+  } CanTp_TpTxNSduType;
+
+  typedef struct{
+    uint8 CanTpBs;
+    float32 CanTpNar;
+    float32 CanTpNbr;
+    float32 CanTpNcr;
+    CanTp_AddressingFormatType eCanTpRxAddressingFormat;
+    uint16 CanTpRxNSduId;
+    CanTp_PaddingActivationType eCanTpRxPaddingActivation;
+    CanTp_TaType eCanTpRxTaType;
+    uint16 CanTpRxWftMax;
+    float32 CanTpSTmin;
+    PduIdType CanTpRxNSduRef;
+    CanTp_NAeType CanTpNAe;
+    CanTp_NSaType CanTpNSa;
+    CanTp_NTaType CanTpNTa;
+    CanTp_RxNPduType CanTpRxNPdu;
+    CanTp_TxFcNPduType CanTpTxFcNPdu;
+  } CanTp_RxNSduType;
+
   typedef struct {
     CanTp_RxConfigType CanTp_RxConfig;
     CanTp_TxConfigType CanTp_TxConfig;
-  } CanTp_ConfigType;
+  } CanTp_ConfigRxTxType;
 /*====================================================================================================================*\
   Declarations of functions
 \*====================================================================================================================*/
