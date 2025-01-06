@@ -34,6 +34,11 @@
   #define N_CS_TIMEOUT_VALUE 1000
   #define N_CR_TIMEOUT_VALUE 1000
   #define STMIN_TIMEOUT_VALUE 1000
+
+  #define CANTP_N_PCI_SF (0x00U)
+  #define CANTP_N_PCI_FF (0x01U)
+  #define CANTP_N_PCI_CF (0x02U)
+  #define CANTP_N_PCI_FC (0x03U)
 /*====================================================================================================================*\
   Typedefs
 \*====================================================================================================================*/
@@ -69,7 +74,7 @@
 
   typedef struct {
     CanTp_FrameType eFrameType;
-    uint32 uiFrameLength;
+    PduLengthType uiFrameLength;
     uint8 uiSequenceNumber;
     uint8 uiBlockSize;
     uint8 uiFlowStatus;
@@ -85,8 +90,8 @@
   } CanTp_AddressingFormatType;
 
   typedef enum {
-    CANTP_OFF,
-    CANTP_ON
+     CANTP_OFF_PADDING,
+     CANTP_ON_PADDING
   } CanTp_PaddingActivationType;
   
   typedef enum {
@@ -103,12 +108,6 @@
   } CanTp_TxConfigType;
 
   typedef struct{
-    float32 CanTpMainFunctionPeriod;
-    uint64 CanTpMaxChannelCnt;
-    CanTp_ChannelType CanTpChannel;
-  } CanTp_ConfigType;
-
-  typedef struct{
     boolean CanTpChangeParameterApi;
     boolean CanTpDevErrorDetect;
     boolean CanTpDynIdSupport;
@@ -118,11 +117,6 @@
     boolean CanTpReadParameterApi;
     boolean CanTpVersionInfoApi;
   } CanTp_GeneralType;
-  
-  typedef struct{
-    CanTp_RxNSduType RxNSdu;
-    CanTp_TxNSduType TxNSdu;
-  } CanTp_ChannelType;
 
   typedef struct {
     uint16 CanTpRxNPduId;
@@ -191,6 +185,17 @@
     CanTp_RxNPduType CanTpRxNPdu;
     CanTp_TxFcNPduType CanTpTxFcNPdu;
   } CanTp_RxNSduType;
+
+  typedef struct{
+    CanTp_RxNSduType RxNSdu;
+    CanTp_TxNSduType TxNSdu;
+  } CanTp_ChannelType;
+
+  typedef struct{
+    float32 CanTpMainFunctionPeriod;
+    uint64 CanTpMaxChannelCnt;
+    CanTp_ChannelType CanTpChannel;
+  } CanTp_ConfigType;
 
   typedef struct {
     CanTp_RxConfigType CanTp_RxConfig;

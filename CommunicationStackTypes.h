@@ -31,14 +31,13 @@
 	}BufReq_ReturnType;
 
 	typedef uint16 PduIdType;
+	typedef uint32 PduLengthType;
 
 	typedef struct{
 		uint8*        SduDataPtr;   
 		uint8*        MetaDataPtr;  
 		PduLengthType SduLength;    
 	}PduInfoType;
-
-	typedef uint32 PduLengthType;
 
 	typedef struct{
 		TpDataStateType TpDataState; 
