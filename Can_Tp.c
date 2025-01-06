@@ -86,7 +86,7 @@ Std_ReturnType CanTp_Transmit(PduIdType TxPduId, const PduInfoType* PduInfoPtr) 
   printf("\nSduLength: 0x%04x\n",PduInfoPtr->SduLength);
   #endif
 
-  if(PduInfoPtr == NULL_PTR) {
+  if(PduInfoPtr->MetaDataPtr == NULL || PduInfoPtr->SduDataPtr == NULL) {
     ret = E_NOT_OK;
   }
   else {
