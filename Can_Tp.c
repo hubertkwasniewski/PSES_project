@@ -106,7 +106,9 @@ Std_ReturnType CanTp_Transmit(PduIdType TxPduId, const PduInfoType* PduInfoPtr) 
             }
             #endif
             if(CanIf_Transmit(TxPduId, &PduInfoTmp) == E_OK) {
+              #ifdef DEBUG
               printf("Timer N_AS start\n");
+              #endif
               PduR_CanTpTxConfirmation(TxPduId, E_OK);
             }
             else {
