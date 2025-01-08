@@ -178,4 +178,105 @@ Std_ReturnType CanTp_Transmit(PduIdType TxPduId, const PduInfoType* PduInfoPtr) 
   }
   return ret;
 }
+/**
+  @brief CanTp_CancelTransmit
+   This function requests cancellation of an ongoing transmission of a PDU in a lower layer
+   communication module.
+   [SWS_CANTP_00246], [SWS_CANTP_00254], [SWS_CANTP_00255], [SWS_CANTP_00256]
+*/
+Std_ReturnType CanTp_CancelTransmit(PduIdType TxPduId) {
+  Std_ReturnType ret = E_OK;
 
+  if(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId == TxPduId) {
+    PduR_CanTpTxConfirmation(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId, E_NOT_OK);
+    CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_PROCESSING_SUSPEND;
+  }
+  else {
+    ret = E_NOT_OK;
+  }
+  return ret;
+}
+/**
+  @brief CanTp_CancelReceive
+   This function requests cancellation of an ongoing reception of a PDU in a lower layer
+   protocol module.
+   [SWS_CANTP_00257], [SWS_CANTP_00260], [SWS_CANTP_00261], [SWS_CANTP_00262], [SWS_CANTP_00263]
+*/
+Std_ReturnType CanTp_CancelReceive(PduIdType RxPduId) {
+  Std_ReturnType ret = E_OK;
+
+  if(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId == RxPduId) {
+    PduR_CanTpRxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, E_NOT_OK);
+    CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+  }
+  else {
+    ret = E_NOT_OK;
+  }
+  return ret;
+}
+/**
+  @brief CanTp_ChangeParameter
+   This function requests to change a specific transport protocol parameter (e.g. block size).
+   [SWS_CANTP_00302], [SWS_CANTP_00303], [SWS_CANTP_00304], [SWS_CANTP_00305], [SWS_CANTP_00338]
+*/
+Std_ReturnType CanTp_ChangeParameter(PduIdType id, TPParameterType parameter, uint16 value) {
+  Std_ReturnType ret = E_OK;
+
+  if(eCanTp_State == CANTP_ON && CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId == id 
+      && CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState != CANTP_RX_PROCESSING) {
+    switch (parameter) {
+      case TP_STMIN:
+        if((value >= 0x00U && value <= 0x7FU) || (value >= 0xF1U && value <= 0xF9U)) {
+          CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin = value;
+        }
+        else {
+          ret = E_NOT_OK;
+        }
+        break;
+      case TP_BS:
+          CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs = value;
+        break;
+      default:
+        ret = E_NOT_OK;
+        break;
+    }   
+  }
+  else {
+    ret = E_NOT_OK;
+  }
+  return ret;
+}
+/**
+  @brief CanTp_ReadParameter
+   This function  is used to read the current value of reception parameters BS and STmin for a specified N-SDU.
+   [SWS_CANTP_00323], [SWS_CANTP_00324]
+*/
+Std_ReturnType CanTp_ReadParameter(PduIdType id, TPParameterType parameter, uint16* value) {
+  Std_ReturnType ret = E_OK;
+  uint16 obtainedValue;
+
+  if(eCanTp_State == CANTP_ON && CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId == id) {
+    switch (parameter) {
+      case TP_STMIN:
+        obtainedValue = CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin;
+        if((obtainedValue >= 0x00U && obtainedValue <= 0x7FU) || (obtainedValue >= 0xF1U && obtainedValue <= 0xF9U)) {
+          *value = obtainedValue;
+        }
+        else {
+          ret = E_NOT_OK;
+        }
+        break;
+      case TP_BS:
+        obtainedValue = CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs;
+        *value = obtainedValue;
+        break;
+      default:
+        ret = E_NOT_OK;
+        break;
+    }   
+  }
+  else {
+    ret = E_NOT_OK;
+  }
+  return ret;
+}

@@ -291,11 +291,332 @@ void TestOf_CanTp_Transmit(void){
 	FFF_FAKES_LIST(RESET_FAKE);
 	FFF_RESET_HISTORY();
 }
+/**
+  @brief Test of CanTp_CancelTransmit function
+
+  This function tests CanTp_CancelTransmit function.
+*/
+void TestOf_CanTp_CancelTransmit(void) {
+	Std_ReturnType ret;
+	PduIdType ID = 0x02U;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId = 0x02U;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_PROCESSING;
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId == 0x02U);
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState == CANTP_TX_PROCESSING);
+
+//=====================================================================================================================
+//	Test 1 - TxID correct
+//=====================================================================================================================
+	ret = CanTp_CancelTransmit(ID);
+
+	TEST_CHECK(ret == E_OK);
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 1);
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.arg1_val == E_NOT_OK);
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState == CANTP_TX_PROCESSING_SUSPEND);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 2 - TxID incorrect
+//=====================================================================================================================
+	ID = 0x05U;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_PROCESSING;
+	ret = CanTp_CancelTransmit(ID);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0);
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState == CANTP_TX_PROCESSING);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+}
+/**
+  @brief Test of CanTp_CancelReceive function
+
+  This function tests CanTp_CancelReceive function.
+*/
+void TestOf_CanTp_CancelReceive(void) {
+	Std_ReturnType ret;
+	PduIdType ID = 0x02U;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId = 0x02U;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId == 0x02U);
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_PROCESSING);
+//=====================================================================================================================
+//	Test 1 - RxID correct
+//=====================================================================================================================
+	ret = CanTp_CancelReceive(ID);
+
+	TEST_CHECK(ret == E_OK);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 1);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.arg1_val == E_NOT_OK);
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_PROCESSING_SUSPEND);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 2 - RxID incorrect
+//=====================================================================================================================
+	ID = 0x05U;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+	ret = CanTp_CancelReceive(ID);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0);
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_PROCESSING);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+}
+/**
+  @brief Test of CanTp_ChangeParameter function
+
+  This function tests CanTp_ChangeParameter function.
+*/
+void TestOf_CanTp_ChangeParameter(void) {
+	Std_ReturnType ret;
+	PduIdType ID = 0x05;
+	eCanTp_State = CANTP_ON;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId = 0x05U;
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin = 0x00U;
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs = 0x00U;
+
+//=====================================================================================================================
+//	Test 1 - Changing TP_STMIN parameter from 0x00 to 0x7F
+//=====================================================================================================================
+	uint16 valueToWrite = 0x7FU;
+	TPParameterType parameter = TP_STMIN;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin == 0x7FU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 2 - Changing TP_STMIN parameter from 0x7F to 0xF0
+//=====================================================================================================================
+	valueToWrite = 0xF0U;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin == 0x7FU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 3 - Changing TP_STMIN parameter from 0x7F to 0xF9
+//=====================================================================================================================
+	valueToWrite = 0xF9U;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin == 0xF9U);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 4 - Changing TP_STMIN parameter from 0xF9 to 0xFF
+//=====================================================================================================================
+	valueToWrite = 0xFFU;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin == 0xF9U);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 5 - Changing TP_BS parameter from 0x00 to 0xFF
+//=====================================================================================================================
+	valueToWrite = 0xFFU;
+	parameter = TP_BS;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 6 - ID incorrect
+//=====================================================================================================================
+	valueToWrite = 0xFFU;
+	ID = 0x10U;
+	parameter = TP_BS;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 7 - RxState = CANTP_RX_PROCESSING
+//=====================================================================================================================
+	valueToWrite = 0xFFU;
+	ID = 0x05U;
+	parameter = TP_BS;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 8 - CANTP_OFF
+//=====================================================================================================================
+	valueToWrite = 0xFFU;
+	ID = 0x05U;
+	parameter = TP_BS;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	eCanTp_State = CANTP_OFF;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 9 - parameter type invalid
+//=====================================================================================================================
+	valueToWrite = 0xFFU;
+	ID = 0x05U;
+	parameter = 0x10;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	eCanTp_State = CANTP_ON;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+}
+/**
+  @brief Test of CanTp_ReadParameter function
+
+  This function tests CanTp_ReadParameter function.
+*/
+void TestOf_CanTp_ReadParameter(void) {
+	Std_ReturnType ret;
+	uint16 value = 0x00;
+	PduIdType ID = 0x05;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId = 0x05U;
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin = 0x55U;
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs = 0x55U;
+	
+//=====================================================================================================================
+//	Test 1 - CANTP_OFF
+//=====================================================================================================================	
+	eCanTp_State = CANTP_OFF;
+	TPParameterType parameter = TP_STMIN;
+	ret = CanTp_ReadParameter(ID, parameter, &value);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(value == 0x00U);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 2 - Reading TP_STMIN parameter (TP_STMIN = 0x55)
+//=====================================================================================================================	
+	eCanTp_State = CANTP_ON;
+	parameter = TP_STMIN;
+	ret = CanTp_ReadParameter(ID, parameter, &value);
+
+	TEST_CHECK(ret == E_OK);
+	TEST_CHECK(value == 0x55U);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 3 - Reading TP_STMIN parameter (TP_STMIN = 0xF9)
+//=====================================================================================================================	
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin = 0xF9U;
+	parameter = TP_STMIN;
+	ret = CanTp_ReadParameter(ID, parameter, &value);
+
+	TEST_CHECK(ret == E_OK);
+	TEST_CHECK(value == 0xF9U);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 4 - Reading TP_STMIN parameter (TP_STMIN = 0xF0)
+//=====================================================================================================================	
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin = 0xF0U;
+	parameter = TP_STMIN;
+	ret = CanTp_ReadParameter(ID, parameter, &value);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(value == 0xF9U);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 5 - Reading TP_STMIN parameter (TP_STMIN = 0xFF)
+//=====================================================================================================================	
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin = 0xFFU;
+	parameter = TP_STMIN;
+	ret = CanTp_ReadParameter(ID, parameter, &value);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(value == 0xF9U);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 6 - Reading TP_BS parameter (TP_BS = 0xFF)
+//=====================================================================================================================	
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs = 0xFFU;
+	parameter = TP_BS;
+	ret = CanTp_ReadParameter(ID, parameter, &value);
+
+	TEST_CHECK(ret == E_OK);
+	TEST_CHECK(value == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 7 - parameter type invalid
+//=====================================================================================================================	
+	parameter = 0x10;
+	ret = CanTp_ReadParameter(ID, parameter, &value);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(value == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 8 - ID incorrect
+//=====================================================================================================================	
+	parameter = TP_BS;
+	ID = 0x08;
+	ret = CanTp_ReadParameter(ID, parameter, &value);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(value == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+}
 
 TEST_LIST = {
 	{ "Test of CanTp_Init", TestOf_CanTp_Init },
-    { "Test of CanTp_Transmit", TestOf_CanTp_Transmit },
     { "Test of CanTp_GetVersionInfo", TestOf_CanTp_GetVersionInfo },
     { "Test of CanTp_Shutdown", TestOf_CanTp_Shutdown },
+	{ "Test of CanTp_Transmit", TestOf_CanTp_Transmit },
+	{ "Test of CanTp_CancelTransmit", TestOf_CanTp_CancelTransmit },
+	{ "Test of CanTp_CancelReceive", TestOf_CanTp_CancelReceive },
+	{ "Test of CanTp_ChangeParameter", TestOf_CanTp_ChangeParameter },
+	{ "Test of CanTp_ReadParameter", TestOf_CanTp_ReadParameter },
     { NULL, NULL }                           
 };

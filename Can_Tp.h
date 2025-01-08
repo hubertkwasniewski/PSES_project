@@ -101,10 +101,12 @@
 
   typedef struct {
     CanTp_RxStateType eCanTp_RxState;
+    PduIdType CanTp_CurrentRxPduId;
   } CanTp_RxConfigType;
 
   typedef struct {
     CanTp_TxStateType eCanTp_TxState;
+    PduIdType CanTp_CurrentTxPduId;
   } CanTp_TxConfigType;
 
   typedef struct{
