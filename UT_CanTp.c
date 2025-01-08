@@ -498,6 +498,18 @@ void TestOf_CanTp_ChangeParameter(void) {
 
 	FFF_FAKES_LIST(RESET_FAKE);
 	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 10 - Changing TP_BS parameter from 0x00 to 0xFFF
+//=====================================================================================================================
+	valueToWrite = 0xFFFU;
+	parameter = TP_BS;
+	ret = CanTp_ChangeParameter(ID, parameter, valueToWrite);
+
+	TEST_CHECK(ret == E_NOT_OK);
+	TEST_CHECK(CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs == 0xFFU);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
 }
 /**
   @brief Test of CanTp_ReadParameter function

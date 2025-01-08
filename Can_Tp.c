@@ -18,6 +18,12 @@
 CanTp_ConfigType CanTp_ConfigPtr;
 CanTp_ConfigRxTxType CanTp_RxTxVariablesConfig;
 CanTp_StateType eCanTp_State;
+CanTp_TimerType CanTp_ArTimer = {0, 0};
+CanTp_TimerType CanTp_BrTimer = {0, 0}; 
+CanTp_TimerType CanTp_CrTimer = {0, 0}; 
+CanTp_TimerType CanTp_AsTimer = {0, 0}; 
+CanTp_TimerType CanTp_BsTimer = {0, 0}; 
+CanTp_TimerType CanTp_CsTimer = {0, 0};
 /*=======================================================================================================*\
   Definitions of functions
 \*=======================================================================================================*/
@@ -234,7 +240,12 @@ Std_ReturnType CanTp_ChangeParameter(PduIdType id, TPParameterType parameter, ui
         }
         break;
       case TP_BS:
+        if(value <= 0x0FF) {
           CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs = value;
+        }
+        else {
+          ret = E_NOT_OK;
+        }
         break;
       default:
         ret = E_NOT_OK;
