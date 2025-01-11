@@ -236,5 +236,8 @@
   void CanTp_ResetTimer(CanTp_TimerType *CanTp_Timer);
   void CanTp_IncrementTimer(CanTp_TimerType *CanTp_Timer);
   uint16 CanTp_CalcBlockSize(PduLengthType BufferSize);
+  Std_ReturnType CanTp_ReceiveFF(PduIdType RxPduId, const PduInfoType *PduInfoPtr, CanTp_PCIType *CanPCI, BufReq_ReturnType BuffState, CanTp_FCFlowStatusType FS);
+  Std_ReturnType CanTp_ReceiveFC(PduIdType RxPduId, const PduInfoType *PduInfoPtr, CanTp_PCIType *CanPCI, CanTp_FCFlowStatusType FS);
+  Std_ReturnType CanTp_ReceiveCF(PduIdType RxPduId, const PduInfoType *PduInfoPtr, CanTp_PCIType *CanPCI, CanTp_FCFlowStatusType FS);
 
 #endif /* CAN_TP_H */

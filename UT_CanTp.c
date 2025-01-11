@@ -30,6 +30,9 @@ FAKE_VALUE_FUNC(BufReq_ReturnType, PduR_CanTpCopyRxData, PduIdType, const PduInf
 FAKE_VALUE_FUNC(BufReq_ReturnType, PduR_CanTpStartOfReception, PduIdType, const PduInfoType*, PduLengthType, PduLengthType*);
 
 FAKE_VALUE_FUNC(uint16, CanTp_CalcBlockSize, PduLengthType);
+FAKE_VALUE_FUNC(Std_ReturnType, CanTp_ReceiveFF, PduIdType, const PduInfoType*, CanTp_PCIType*, BufReq_ReturnType, CanTp_FCFlowStatusType);
+FAKE_VALUE_FUNC(Std_ReturnType, CanTp_ReceiveFC, PduIdType, const PduInfoType*, CanTp_PCIType*, CanTp_FCFlowStatusType);
+FAKE_VALUE_FUNC(Std_ReturnType, CanTp_ReceiveCF, PduIdType, const PduInfoType*, CanTp_PCIType*, CanTp_FCFlowStatusType);
 FAKE_VALUE_FUNC(Std_ReturnType, CanIf_Transmit, PduIdType, const PduInfoType*);
 //Only to reset all fakes
 #define FFF_FAKES_LIST(FAKE) \
@@ -39,11 +42,21 @@ FAKE_VALUE_FUNC(Std_ReturnType, CanIf_Transmit, PduIdType, const PduInfoType*);
 		FAKE(PduR_CanTpCopyRxData) \
 		FAKE(PduR_CanTpStartOfReception) \
 		FAKE(CanIf_Transmit) \
-		FAKE(CanTp_CalcBlockSize)
+		FAKE(CanTp_CalcBlockSize) \
+		FAKE(CanTp_ReceiveFF) \
+		FAKE(CanTp_ReceiveFC) \
+		FAKE(CanTp_ReceiveCF)
 /** ==================================================================================================================*\
 	Custom fakes
 \*====================================================================================================================*/
-
+BufReq_ReturnType PduR_CanTpStartOfReception_custom1(PduIdType arg0, const PduInfoType* arg1, PduLengthType arg2, PduLengthType* arg3) {
+	*arg3 = 0x07;
+	return BUFREQ_OK;
+}
+BufReq_ReturnType PduR_CanTpStartOfReception_custom2(PduIdType arg0, const PduInfoType* arg1, PduLengthType arg2, PduLengthType* arg3) {
+	*arg3 = 0x04;
+	return BUFREQ_OK;
+}
 /** ==================================================================================================================*\
 	Unit Tests
 \*====================================================================================================================*/
@@ -801,6 +814,324 @@ void TestOf_CanTp_MainFunction(void) {
 	FFF_FAKES_LIST(RESET_FAKE);
 	FFF_RESET_HISTORY();
 }
+/**
+  @brief Test of CanTp_RxIndication function
+
+  This function tests CanTp_RxIndication function.
+*/
+void TestOf_CanTp_RxIndication(void) {
+//=====================================================================================================================
+//	Test 1 - CANTP_OFF -> do nothing
+//=====================================================================================================================
+	PduInfoType PduInfo;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId = 0x03;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	eCanTp_State = CANTP_OFF;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x0);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x0);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 2 - Invalid type of frame
+//=====================================================================================================================
+	eCanTp_State = CANTP_ON;
+	uint8 SduData[8] = {0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	uint8 *MetaData;
+	PduInfo.SduDataPtr = SduData;
+	PduInfo.MetaDataPtr = MetaData;
+	PduInfo.SduLength = 7;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x0);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x0);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 3 - FrameType -> SingleFrame, BUFREQ_OK, BuffSize >= FrameLength
+//=====================================================================================================================
+	uint8 SduData1[8] = {0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	PduInfo.SduDataPtr = SduData1;
+	PduInfo.SduLength = 7;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.custom_fake = PduR_CanTpStartOfReception_custom1;
+
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 4 - FrameType -> SingleFrame, BUFREQ_OK, BuffSize < FrameLength
+//=====================================================================================================================
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.custom_fake = PduR_CanTpStartOfReception_custom2;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 5 - FrameType -> SingleFrame, BUFREQ_E_NOT_OK
+//=====================================================================================================================
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.return_val = BUFREQ_E_NOT_OK;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x00);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 6 - FrameType -> SingleFrame, BUFREQ_OK, BuffSize >= FrameLength, CANTP_RX_PROCESSING
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.custom_fake = PduR_CanTpStartOfReception_custom1;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x02);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 7 - FrameType -> SingleFrame, BUFREQ_OK, BuffSize < FrameLength, CANTP_RX_PROCESSING
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.custom_fake = PduR_CanTpStartOfReception_custom2;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x02);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 8 - FrameType -> SingleFrame, BUFREQ_E_NOT_OK, CANTP_RX_PROCESSING
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.return_val = BUFREQ_E_NOT_OK;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 9 - FrameType -> SingleFrame, BUFREQ_OK, BuffSize >= FrameLength, CANTP_RX_PROCESSING_SUSPEND
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.custom_fake = PduR_CanTpStartOfReception_custom1;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x02);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 10 - FrameType -> SingleFrame, BUFREQ_OK, BuffSize < FrameLength, CANTP_RX_PROCESSING_SUSPEND
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.custom_fake = PduR_CanTpStartOfReception_custom2;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x02);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 11 - FrameType -> SingleFrame, BUFREQ_E_NOT_OK, CANTP_RX_PROCESSING_SUSPEND
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	PduR_CanTpStartOfReception_fake.return_val = BUFREQ_E_NOT_OK;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpCopyRxData_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 12 - FrameType -> FirstFrame, FF_DL <= 4095, BUFREQ_OK, CANTP_RX_WAIT
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	uint8 SduData2[8] = {0x10, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	PduInfo.SduDataPtr = SduData2;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 13 - FrameType -> FirstFrame, FF_DL > 4095, BUFREQ_OK, CANTP_RX_WAIT
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	uint8 SduData3[8] = {0x10, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00};
+	PduInfo.SduDataPtr = SduData3;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 14 - FrameType -> FirstFrame, FF_DL > 4095, BUFREQ_OK, CANTP_RX_PROCESSING
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 15 - FrameType -> FirstFrame, FF_DL > 4095, BUFREQ_OK, CANTP_RX_PROCESSING_SUSPEND
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 16 - FrameType -> ConsecutiveFrame, BUFREQ_OK, CANTP_RX_PROCESSING
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+	uint8 SduData4[8] = {0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	PduInfo.SduDataPtr = SduData4;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_PROCESSING);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x00);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 17 - FrameType -> ConsecutiveFrame, BUFREQ_OK, CANTP_RX_PROCESSING_SUSPEND
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+	
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 17 - FrameType -> FlowControl
+//=====================================================================================================================
+	uint8 SduData5[8] = {0x30, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+	PduInfo.SduDataPtr = SduData5;
+
+	CanTp_RxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfo);
+
+	TEST_CHECK(PduR_CanTpStartOfReception_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x00);
+	TEST_CHECK(CanTp_ReceiveFF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveCF_fake.call_count == 0x0);
+	TEST_CHECK(CanTp_ReceiveFC_fake.call_count == 0x01);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+}
 
 TEST_LIST = {
 	{ "Test of CanTp_Init", TestOf_CanTp_Init },
@@ -812,5 +1143,6 @@ TEST_LIST = {
 	{ "Test of CanTp_ChangeParameter", TestOf_CanTp_ChangeParameter },
 	{ "Test of CanTp_ReadParameter", TestOf_CanTp_ReadParameter },
 	{ "Test of CanTp_MainFunction", TestOf_CanTp_MainFunction },
+	{ "Test of CanTp_RxIndication", TestOf_CanTp_RxIndication },
     { NULL, NULL }                           
 };
