@@ -39,6 +39,8 @@
   #define CANTP_N_PCI_FF (0x01U)
   #define CANTP_N_PCI_CF (0x02U)
   #define CANTP_N_PCI_FC (0x03U)
+
+  #define CANTP_FCWFTMAX (10)
 /*====================================================================================================================*\
   Typedefs
 \*====================================================================================================================*/
@@ -230,5 +232,9 @@
   void CanTp_MainFunction(void);
   void CanTp_RxIndication(PduIdType RxPduId, const PduInfoType* PduInfoPtr);
   void CanTp_TxConfirmation(PduIdType TxPduId, Std_ReturnType result);
+
+  void CanTp_ResetTimer(CanTp_TimerType *CanTp_Timer);
+  void CanTp_IncrementTimer(CanTp_TimerType *CanTp_Timer);
+  uint16 CanTp_CalcBlockSize(PduLengthType BufferSize);
 
 #endif /* CAN_TP_H */

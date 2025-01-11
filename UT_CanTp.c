@@ -29,6 +29,7 @@ FAKE_VOID_FUNC(PduR_CanTpRxIndication, PduIdType, Std_ReturnType);
 FAKE_VALUE_FUNC(BufReq_ReturnType, PduR_CanTpCopyRxData, PduIdType, const PduInfoType*, PduLengthType*);
 FAKE_VALUE_FUNC(BufReq_ReturnType, PduR_CanTpStartOfReception, PduIdType, const PduInfoType*, PduLengthType, PduLengthType*);
 
+FAKE_VALUE_FUNC(uint16, CanTp_CalcBlockSize, PduLengthType);
 FAKE_VALUE_FUNC(Std_ReturnType, CanIf_Transmit, PduIdType, const PduInfoType*);
 //Only to reset all fakes
 #define FFF_FAKES_LIST(FAKE) \
@@ -37,7 +38,8 @@ FAKE_VALUE_FUNC(Std_ReturnType, CanIf_Transmit, PduIdType, const PduInfoType*);
 		FAKE(PduR_CanTpRxIndication) \
 		FAKE(PduR_CanTpCopyRxData) \
 		FAKE(PduR_CanTpStartOfReception) \
-		FAKE(CanIf_Transmit)
+		FAKE(CanIf_Transmit) \
+		FAKE(CanTp_CalcBlockSize)
 /** ==================================================================================================================*\
 	Custom fakes
 \*====================================================================================================================*/
@@ -620,6 +622,185 @@ void TestOf_CanTp_ReadParameter(void) {
 	FFF_FAKES_LIST(RESET_FAKE);
 	FFF_RESET_HISTORY();
 }
+/**
+  @brief Test of CanTp_MainFunction function
+
+  This function tests CanTp_MainFunction function.
+*/
+void TestOf_CanTp_MainFunction(void) {
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpSTmin = 0x01;
+	CanTp_ConfigPtr.CanTpChannel.RxNSdu.CanTpBs = 0x02;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_WAIT;
+//=====================================================================================================================
+//	Test 1 - TIMEOUTS TEST
+//=====================================================================================================================	
+	CanTp_BrTimer.eCanTp_TimerState = STOP;
+	CanTp_ArTimer.CanTp_Counter = 999; CanTp_ArTimer.eCanTp_TimerState = START;
+	CanTp_CrTimer.CanTp_Counter = 999; CanTp_CrTimer.eCanTp_TimerState = START;
+	CanTp_BsTimer.CanTp_Counter = 999; CanTp_BsTimer.eCanTp_TimerState = START;
+	CanTp_AsTimer.CanTp_Counter = 999; CanTp_AsTimer.eCanTp_TimerState = START;
+	CanTp_CsTimer.CanTp_Counter = 999; CanTp_CsTimer.eCanTp_TimerState = START;
+	
+	CanTp_MainFunction();
+	
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_PROCESSING_SUSPEND);
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState == CANTP_TX_PROCESSING_SUSPEND);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x02);
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0x03);
+
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 2 - TIMERS ON BUT NOT OVERFLOWED
+//=====================================================================================================================	
+	CanTp_BrTimer.eCanTp_TimerState = STOP;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_WAIT;
+	CanTp_ArTimer.CanTp_Counter = 0; CanTp_ArTimer.eCanTp_TimerState = START;
+	CanTp_CrTimer.CanTp_Counter = 0; CanTp_CrTimer.eCanTp_TimerState = START;
+	CanTp_BsTimer.CanTp_Counter = 0; CanTp_BsTimer.eCanTp_TimerState = START;
+	CanTp_AsTimer.CanTp_Counter = 0; CanTp_AsTimer.eCanTp_TimerState = START;
+	CanTp_CsTimer.CanTp_Counter = 0; CanTp_CsTimer.eCanTp_TimerState = START;
+
+	CanTp_MainFunction();
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState == CANTP_TX_WAIT);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x00);
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0x00);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 3 - PduR_CanTpCopyRxData returns BUFREQ_E_NOT_OK
+//=====================================================================================================================	
+	CanTp_BrTimer.eCanTp_TimerState = START;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_E_NOT_OK;
+
+	CanTp_MainFunction();
+	
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 4 - PduR_CanTpCopyRxData -> BUFREQ_OK, CalcBlockSize > 0, CanIfTransmit -> E_NOT_OK
+//=====================================================================================================================	
+	CanTp_ArTimer.CanTp_Counter = 0; CanTp_ArTimer.eCanTp_TimerState = STOP;
+	CanTp_CrTimer.CanTp_Counter = 0; CanTp_CrTimer.eCanTp_TimerState = STOP;
+	CanTp_BsTimer.CanTp_Counter = 0; CanTp_BsTimer.eCanTp_TimerState = STOP;
+	CanTp_AsTimer.CanTp_Counter = 0; CanTp_AsTimer.eCanTp_TimerState = STOP;
+	CanTp_CsTimer.CanTp_Counter = 0; CanTp_CsTimer.eCanTp_TimerState = STOP;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	CanTp_CalcBlockSize_fake.return_val = 0x02;
+	CanIf_Transmit_fake.return_val = E_NOT_OK;
+	CanTp_BrTimer.CanTp_Counter = 0;
+	
+	CanTp_MainFunction();
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_PROCESSING_SUSPEND);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanIf_Transmit_fake.call_count == 0x01);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 5 - PduR_CanTpCopyRxData -> BUFREQ_OK, CalcBlockSize = 0
+//=====================================================================================================================
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	CanTp_CalcBlockSize_fake.return_val = 0x00;
+	CanTp_BrTimer.CanTp_Counter = 0;
+
+	CanTp_MainFunction();
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x00);
+	TEST_CHECK(CanIf_Transmit_fake.call_count == 0x00);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 6 - PduR_CanTpCopyRxData -> BUFREQ_OK, CalcBlockSize > 0, CanIfTransmit -> E_OK
+//=====================================================================================================================
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	CanTp_CalcBlockSize_fake.return_val = 0x02;
+	CanIf_Transmit_fake.return_val = E_OK;
+	CanTp_BrTimer.CanTp_Counter = 1;
+
+	CanTp_MainFunction();
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_PROCESSING);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x00);
+	TEST_CHECK(CanIf_Transmit_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_BrTimer.CanTp_Counter == 0);
+	TEST_CHECK(CanTp_BrTimer.eCanTp_TimerState == STOP);
+	TEST_CHECK(CanTp_ArTimer.eCanTp_TimerState == START);
+	TEST_CHECK(CanTp_CrTimer.eCanTp_TimerState == START);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 7 - PduR_CanTpCopyRxData -> BUFREQ_OK, CalcBlockSize = 0, BrTimer TIMEOUT, FCWFTcnt < CANTP_FCWFTMAX
+//=====================================================================================================================
+	CanTp_ArTimer.CanTp_Counter = 0; CanTp_ArTimer.eCanTp_TimerState = STOP;
+	CanTp_CrTimer.CanTp_Counter = 0; CanTp_CrTimer.eCanTp_TimerState = STOP;
+	CanTp_BsTimer.CanTp_Counter = 0; CanTp_BsTimer.eCanTp_TimerState = STOP;
+	CanTp_AsTimer.CanTp_Counter = 0; CanTp_AsTimer.eCanTp_TimerState = STOP;
+	CanTp_CsTimer.CanTp_Counter = 0; CanTp_CsTimer.eCanTp_TimerState = STOP;
+	CanTp_BrTimer.eCanTp_TimerState = START;
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	CanTp_CalcBlockSize_fake.return_val = 0x00;
+	CanIf_Transmit_fake.return_val = E_NOT_OK;
+	CanTp_BrTimer.CanTp_Counter = 999;
+	CanTp_FCWFTcnt = 7;
+
+	CanTp_MainFunction();
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_PROCESSING_SUSPEND);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanIf_Transmit_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_BrTimer.CanTp_Counter == 0);
+	TEST_CHECK(CanTp_FCWFTcnt == 8);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 8 - CanIfTransmit -> E_OK, CalcBlockSize = 0, BrTimer TIMEOUT, FCWFTcnt < CANTP_FCWFTMAX
+//=====================================================================================================================
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	CanTp_CalcBlockSize_fake.return_val = 0x00;
+	CanIf_Transmit_fake.return_val = E_OK;
+	CanTp_BrTimer.CanTp_Counter = 999;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+
+	CanTp_MainFunction();
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x00);
+	TEST_CHECK(CanIf_Transmit_fake.call_count == 0x01);
+	TEST_CHECK(CanTp_BrTimer.CanTp_Counter == 0);
+	TEST_CHECK(CanTp_ArTimer.eCanTp_TimerState == START);
+	TEST_CHECK(CanTp_BrTimer.eCanTp_TimerState == START);
+	TEST_CHECK(CanTp_FCWFTcnt == 9);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 9 - PduR_CanTpCopyRxData -> BUFREQ_OK, CalcBlockSize = 0, BrTimer TIMEOUT, FCWFTcnt >= CANTP_FCWFTMAX
+//=====================================================================================================================
+	PduR_CanTpCopyRxData_fake.return_val = BUFREQ_OK;
+	CanTp_CalcBlockSize_fake.return_val = 0x00;
+	CanIf_Transmit_fake.return_val = E_OK;
+	CanTp_BrTimer.CanTp_Counter = 999;
+	CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+	CanTp_ArTimer.eCanTp_TimerState = STOP;
+
+	CanTp_MainFunction();
+
+	TEST_CHECK(CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState == CANTP_RX_WAIT);
+	TEST_CHECK(PduR_CanTpRxIndication_fake.call_count == 0x01);
+	TEST_CHECK(CanIf_Transmit_fake.call_count == 0x00);
+	TEST_CHECK(CanTp_BrTimer.CanTp_Counter == 0);
+	TEST_CHECK(CanTp_ArTimer.eCanTp_TimerState == STOP);
+	TEST_CHECK(CanTp_BrTimer.eCanTp_TimerState == START);
+	TEST_CHECK(CanTp_FCWFTcnt == 0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+}
 
 TEST_LIST = {
 	{ "Test of CanTp_Init", TestOf_CanTp_Init },
@@ -630,5 +811,6 @@ TEST_LIST = {
 	{ "Test of CanTp_CancelReceive", TestOf_CanTp_CancelReceive },
 	{ "Test of CanTp_ChangeParameter", TestOf_CanTp_ChangeParameter },
 	{ "Test of CanTp_ReadParameter", TestOf_CanTp_ReadParameter },
+	{ "Test of CanTp_MainFunction", TestOf_CanTp_MainFunction },
     { NULL, NULL }                           
 };

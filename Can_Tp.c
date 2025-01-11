@@ -24,6 +24,19 @@ CanTp_TimerType CanTp_CrTimer = {0, 0};
 CanTp_TimerType CanTp_AsTimer = {0, 0}; 
 CanTp_TimerType CanTp_BsTimer = {0, 0}; 
 CanTp_TimerType CanTp_CsTimer = {0, 0};
+uint32 CanTp_FCWFTcnt;
+/*=======================================================================================================*\
+  Timer functions
+\*=======================================================================================================*/
+void CanTp_ResetTimer(CanTp_TimerType *CanTp_Timer) {
+    CanTp_Timer->eCanTp_TimerState = STOP;
+    CanTp_Timer->CanTp_Counter = 0;
+}
+void CanTp_IncrementTimer(CanTp_TimerType *CanTp_Timer) {  
+    if(CanTp_Timer->eCanTp_TimerState == START){
+      CanTp_Timer->CanTp_Counter++;
+    }
+}
 /*=======================================================================================================*\
   Definitions of functions
 \*=======================================================================================================*/
@@ -92,7 +105,7 @@ Std_ReturnType CanTp_Transmit(PduIdType TxPduId, const PduInfoType* PduInfoPtr) 
   printf("\nSduLength: 0x%04x\n",PduInfoPtr->SduLength);
   #endif
 
-  if(PduInfoPtr->MetaDataPtr == NULL || PduInfoPtr->SduDataPtr == NULL) {
+  if(PduInfoPtr->SduDataPtr == NULL) {
     ret = E_NOT_OK;
   }
   else {
@@ -290,4 +303,114 @@ Std_ReturnType CanTp_ReadParameter(PduIdType id, TPParameterType parameter, uint
     ret = E_NOT_OK;
   }
   return ret;
+}
+/**
+  @brief CanTp_MainFunction
+   The main function for scheduling the CAN TP. [SWS_CANTP_00213], [SWS_CANTP_00164], [SWS_CANTP_00300]
+*/
+void CanTp_MainFunction(void) {
+  uint16 CalcBlockSize;
+  uint16 SepTime;
+  Std_ReturnType ret;
+  BufReq_ReturnType BufReqState;
+  PduInfoType PduInfoNull = {NULL, NULL, 0};
+  PduInfoType PduInfoPtr;
+  PduLengthType PduLength;
+  TPParameterType parameter1 = TP_BS;
+  TPParameterType parameter2 = TP_STMIN;
+  CanTp_FCFlowStatusType FlowStatus;
+
+  CanTp_ReadParameter(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, TP_STMIN, &SepTime);
+
+  CanTp_IncrementTimer(&CanTp_AsTimer);
+  CanTp_IncrementTimer(&CanTp_BsTimer);
+  CanTp_IncrementTimer(&CanTp_CsTimer);
+  CanTp_IncrementTimer(&CanTp_ArTimer);
+  CanTp_IncrementTimer(&CanTp_BrTimer);
+  CanTp_IncrementTimer(&CanTp_CrTimer);
+
+  if(CanTp_BrTimer.eCanTp_TimerState == START) {
+    BufReqState = PduR_CanTpCopyRxData(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfoNull, &PduLength);
+    if(BufReqState == BUFREQ_E_NOT_OK) {
+      PduR_CanTpRxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, E_NOT_OK);
+    }
+    else {
+      CalcBlockSize = CanTp_CalcBlockSize(PduLength);
+      if(CalcBlockSize > 0) {
+        FlowStatus = FC_CTS;
+        CanTp_ChangeParameter(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, parameter1, CalcBlockSize);
+        CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING;
+        PduInfoPtr.SduDataPtr[0] = CANTP_N_PCI_FC << 4;
+        PduInfoPtr.SduDataPtr[0] |= (0x0F & FlowStatus);
+        PduInfoPtr.SduDataPtr[1] = CalcBlockSize;
+        PduInfoPtr.SduDataPtr[2] = SepTime;
+        ret = CanIf_Transmit(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfoPtr);
+        if(ret == E_NOT_OK) {
+          CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+          PduR_CanTpRxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, E_NOT_OK);
+        }
+        else {
+          CanTp_ResetTimer(&CanTp_BrTimer);
+          CanTp_ArTimer.eCanTp_TimerState = START;
+          CanTp_CrTimer.eCanTp_TimerState = START;
+        }
+      }
+      if(CanTp_BrTimer.CanTp_Counter >= N_BR_TIMEOUT_VALUE) {
+        CanTp_FCWFTcnt++;
+        CanTp_BrTimer.CanTp_Counter = 0;
+        if(CanTp_FCWFTcnt >= CANTP_FCWFTMAX) {
+          PduR_CanTpRxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, E_NOT_OK);
+          CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_WAIT;
+          CanTp_FCWFTcnt = 0;
+        }
+        else {
+          FlowStatus = FC_WAIT;
+          PduInfoPtr.SduDataPtr[0] = CANTP_N_PCI_FC << 4;
+          PduInfoPtr.SduDataPtr[0] |= (0x0F & FlowStatus);
+          PduInfoPtr.SduDataPtr[1] = CalcBlockSize;
+          PduInfoPtr.SduDataPtr[2] = SepTime;
+          ret = CanIf_Transmit(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, &PduInfoPtr);
+          if(ret == E_NOT_OK) {
+            CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+            PduR_CanTpRxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, E_NOT_OK);
+          }
+          else {
+            CanTp_ArTimer.eCanTp_TimerState = START;
+            CanTp_BrTimer.eCanTp_TimerState = START;
+          }
+        }
+      }
+    }
+  }
+  if(CanTp_CrTimer.eCanTp_TimerState == START) {
+    if(CanTp_CrTimer.CanTp_Counter >= N_CR_TIMEOUT_VALUE) {
+      PduR_CanTpRxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, E_NOT_OK);
+      CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+    }
+  }
+  if(CanTp_ArTimer.eCanTp_TimerState == START) {
+    if(CanTp_ArTimer.CanTp_Counter >= N_AR_TIMEOUT_VALUE) {
+      PduR_CanTpRxIndication(CanTp_RxTxVariablesConfig.CanTp_RxConfig.CanTp_CurrentRxPduId, E_NOT_OK);
+      CanTp_RxTxVariablesConfig.CanTp_RxConfig.eCanTp_RxState = CANTP_RX_PROCESSING_SUSPEND;
+    }
+  }
+  if(CanTp_CsTimer.eCanTp_TimerState == START) {
+    if(CanTp_CsTimer.CanTp_Counter >= N_CS_TIMEOUT_VALUE) {
+      PduR_CanTpTxConfirmation(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId, E_NOT_OK);
+      CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_PROCESSING_SUSPEND;
+    }
+  }
+  if(CanTp_AsTimer.eCanTp_TimerState == START) {
+    if(CanTp_AsTimer.CanTp_Counter >= N_AS_TIMEOUT_VALUE) {
+      PduR_CanTpTxConfirmation(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId, E_NOT_OK);
+      CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_PROCESSING_SUSPEND;
+    }
+  }
+  if(CanTp_BsTimer.eCanTp_TimerState == START) {
+    if(CanTp_BsTimer.CanTp_Counter >= N_BS_TIMEOUT_VALUE) {
+      PduR_CanTpTxConfirmation(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId, E_NOT_OK);
+      CanTp_RxTxVariablesConfig.CanTp_TxConfig.eCanTp_TxState = CANTP_TX_PROCESSING_SUSPEND;
+    }
+  }
+
 }

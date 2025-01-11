@@ -3,6 +3,7 @@
         "can_tp.h": "c",
         "fff.h": "c",
         "std_types.h": "c",
-        "acutest.h": "c"
+        "acutest.h": "c",
+        "can_if.h": "c"
     }
 }
