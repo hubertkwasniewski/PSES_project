@@ -1,4 +1,4 @@
-/**======================================================================================================*\
+/*======================================================================================================*\
   @file CanTp.c
 
   @brief Can Transport Layer
@@ -547,7 +547,29 @@ void CanTp_RxIndication(PduIdType RxPduId, const PduInfoType* PduInfoPtr) {
         break;
     }
   }
-
-
-
+}
+/**
+  @brief CanTp_TxConfirmation
+   The lower layer communication interface module confirms the transmission of a PDU, or the failure to transmit a PDU. 
+   [SWS_CANTP_00215], [SWS_CANTP_00236]
+*/
+void CanTp_TxConfirmation(PduIdType TxPduId, Std_ReturnType result) {
+  if(eCanTp_State == CANTP_ON) {
+    if(CanTp_AsTimer.CanTp_Counter >= N_AS_TIMEOUT_VALUE && CanTp_AsTimer.eCanTp_TimerState == START) {
+      CanTp_ResetTimer(&CanTp_AsTimer);
+      #ifdef DEBUG
+      printf("ABORT SESSION\n");
+      #endif
+    }
+    else {
+      if(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId == TxPduId) {
+        if(result == E_OK) {
+          PduR_CanTpTxConfirmation(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId, E_OK);
+        }
+        else {
+          PduR_CanTpTxConfirmation(CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId, E_NOT_OK);
+        }
+      }
+    }
+  }
 }

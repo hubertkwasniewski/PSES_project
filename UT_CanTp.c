@@ -1132,6 +1132,104 @@ void TestOf_CanTp_RxIndication(void) {
 	FFF_FAKES_LIST(RESET_FAKE);
 	FFF_RESET_HISTORY();
 }
+/**
+  @brief Test of CanTp_TxConfirmation function
+
+  This function tests CanTp_TxConfirmation function.
+*/
+void TestOf_CanTp_TxConfirmation(void) {
+//=====================================================================================================================
+//	Test 1 - CANTP_OFF -> do nothing
+//=====================================================================================================================
+	eCanTp_State = CANTP_OFF;
+	PduIdType ID = 0x03;
+	Std_ReturnType ret = E_OK;
+	CanTp_AsTimer.CanTp_Counter = 999; CanTp_AsTimer.eCanTp_TimerState = START;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId = 0x03;
+
+	CanTp_TxConfirmation(ID, ret);
+
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0x00);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 2 - CANTP_ON, Invalid ID
+//=====================================================================================================================
+	eCanTp_State = CANTP_ON;
+	ID = 0x05;
+	ret = E_OK;
+	CanTp_AsTimer.CanTp_Counter = 999; CanTp_AsTimer.eCanTp_TimerState = START;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId = 0x03;
+
+	CanTp_TxConfirmation(ID, ret);
+
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0x00);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 3 - CANTP_ON, result E_OK
+//=====================================================================================================================
+	eCanTp_State = CANTP_ON;
+	ID = 0x03;
+	ret = E_OK;
+	CanTp_AsTimer.CanTp_Counter = 999; CanTp_AsTimer.eCanTp_TimerState = START;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId = 0x03;
+
+	CanTp_TxConfirmation(ID, ret);
+
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.arg1_val == E_OK);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 4 - CANTP_ON, result E_NOT_OK
+//=====================================================================================================================
+	eCanTp_State = CANTP_ON;
+	ID = 0x03;
+	ret = E_NOT_OK;
+	CanTp_AsTimer.CanTp_Counter = 999; CanTp_AsTimer.eCanTp_TimerState = START;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId = 0x03;
+
+	CanTp_TxConfirmation(ID, ret);
+
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.arg1_val == E_NOT_OK);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 5 - CANTP_ON, AsTimer TIMEOUT and enabled
+//=====================================================================================================================
+	eCanTp_State = CANTP_ON;
+	ID = 0x03;
+	ret = E_NOT_OK;
+	CanTp_AsTimer.CanTp_Counter = N_AS_TIMEOUT_VALUE; CanTp_AsTimer.eCanTp_TimerState = START;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId = 0x03;
+
+	CanTp_TxConfirmation(ID, ret);
+
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0x00);
+	TEST_CHECK(CanTp_AsTimer.eCanTp_TimerState == STOP);
+	TEST_CHECK(CanTp_AsTimer.CanTp_Counter == 0x0);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+//=====================================================================================================================
+//	Test 6 - CANTP_ON, AsTimer disabled
+//=====================================================================================================================
+	eCanTp_State = CANTP_ON;
+	ID = 0x03;
+	ret = E_OK;
+	CanTp_AsTimer.CanTp_Counter = N_AS_TIMEOUT_VALUE; CanTp_AsTimer.eCanTp_TimerState = STOP;
+	CanTp_RxTxVariablesConfig.CanTp_TxConfig.CanTp_CurrentTxPduId = 0x03;
+
+	CanTp_TxConfirmation(ID, ret);
+
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.call_count == 0x01);
+	TEST_CHECK(PduR_CanTpTxConfirmation_fake.arg1_val == E_OK);
+	TEST_CHECK(CanTp_AsTimer.eCanTp_TimerState == STOP);
+	TEST_CHECK(CanTp_AsTimer.CanTp_Counter == N_AS_TIMEOUT_VALUE);
+	FFF_FAKES_LIST(RESET_FAKE);
+	FFF_RESET_HISTORY();
+}
 
 TEST_LIST = {
 	{ "Test of CanTp_Init", TestOf_CanTp_Init },
@@ -1144,5 +1242,6 @@ TEST_LIST = {
 	{ "Test of CanTp_ReadParameter", TestOf_CanTp_ReadParameter },
 	{ "Test of CanTp_MainFunction", TestOf_CanTp_MainFunction },
 	{ "Test of CanTp_RxIndication", TestOf_CanTp_RxIndication },
+	{ "Test of CanTp_TxConfirmation", TestOf_CanTp_TxConfirmation },
     { NULL, NULL }                           
 };
